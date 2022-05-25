@@ -1,4 +1,4 @@
-# TwoCenturies
+# TwoCenturies NLP project
 ##### Multi-class topic classifer for GlassDoor reviews. We defined a set of topic seedwords using semi-supervised method. We performanced unsupervised clustering using K-mean clustering and extracted a set of seedwords, we manually defined a set of culture topics based on the clusters and refined the seedwords.
 
 ##### The reviews and topic seedwords are embedded using Universal Sentence encoder (see https://tfhub.dev/google/collections/universal-sentence-encoder/1), you can try different sentence-encoder model.  For each review, there are more than one topic. For the initial modeling, we use Support Vector Classification (SVC) and enable probability estimates, the SVC classifier will give the prob of each topic of the review. 
