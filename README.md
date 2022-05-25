@@ -3,7 +3,7 @@
 
 ##### The reviews and topic seedwords are embedded using Universal Sentence encoder (see https://tfhub.dev/google/collections/universal-sentence-encoder/1), you can try different sentence-encoder model.  For each review, there are more than one topic. For the initial modeling, we use Support Vector Classification (SVC) and enable probability estimates, the SVC classifier will give the prob of each topic of the review. 
 
-##### Evaluation (performance matric) ... Since there is no ture label of the reviews, 
+##### Evaluation (performance matric) ... There is no ture label of the reviews, (what we do here!!!).....
 
 ##### There are still lot of room for improvement...
 ##
