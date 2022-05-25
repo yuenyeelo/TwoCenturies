@@ -30,4 +30,5 @@
 #### Output topic probs in output_dir
 ##### advice_to_management_probs.csv	cons_description_probs.csv	pros_description_probs.csv	summary_probs.csv
 
-![alt text](https://github.com/yuenyeelo/TwoCenturies/tree/main/image/pros.png?raw=true)
+![](./image/pros.png)
+![](./image/cons.png)
