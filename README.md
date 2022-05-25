@@ -32,6 +32,7 @@
 #### For each columns (["summary","pros_description", "cons_description","advice_to_management"])
 #### Output topic probs in output_dir
 ##### advice_to_management_probs.csv	cons_description_probs.csv	pros_description_probs.csv	summary_probs.csv
-
+##
+### Compare topic mentioned by Amazon, Apple and TMobile
 ![](./image/pros.png)
 ![](./image/cons.png)
