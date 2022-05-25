@@ -1,0 +1,123 @@
+Input GlassDoor Review CSV /Users/yuenyeelo/Documents/Jobs/TwoCenturies/NLP_classifier/data/glassdoor_reviews_selected12.csv
+Input Sentence Embedding Model Dir /Users/yuenyeelo/Documents/Jobs/TwoCenturies/NLP_classifier/models
+Input Topic Seedwords, excel file /Users/yuenyeelo/Documents/Jobs/TwoCenturies/NLP_classifier/topic/TwoCenturies_Glassdoor_topic_seedwords.xlsx
+Output dir /Users/yuenyeelo/Documents/Jobs/TwoCenturies/NLP_classifier/output/
+Cleaning file:  /Users/yuenyeelo/Documents/Jobs/TwoCenturies/NLP_classifier/data/glassdoor_reviews_selected12.csv
+Start Preprocessing: 2022-05-24 21:38:38.877548
+(79372, 50)
+nasdaq:tmus    22031
+nasdaq:amzn    20305
+nasdaq:msft    18917
+nasdaq:aapl    11788
+nyse:crm        3611
+nasdaq:okta      779
+nyse:hubs        597
+nyse:pins        559
+nyse:mkl         298
+nyse:pd          295
+nasdaq:frog      169
+nyse:knsl         23
+Name: tn_id, dtype: int64
+Amazon                       20305
+Microsoft                    18917
+T-Mobile                     12792
+Apple                        11788
+Sprint                        9239
+Salesforce                    3611
+Okta                           690
+HubSpot                        597
+Pinterest                      559
+Markel                         298
+PagerDuty                      295
+JFrog                          169
+Auth0                           89
+Kinsale Insurance Company       23
+Name: employer_name, dtype: int64
+
+Check data shape, info, number of nan
+
+(79372, 7)
+<class 'pandas.core.frame.DataFrame'>
+Int64Index: 79372 entries, 0 to 79371
+Data columns (total 7 columns):
+ #   Column                Non-Null Count  Dtype 
+---  ------                --------------  ----- 
+ 0   id                    79372 non-null  int64 
+ 1   tn_id                 79372 non-null  object
+ 2   as_of_date            79372 non-null  object
+ 3   summary               79287 non-null  object
+ 4   pros_description      79372 non-null  object
+ 5   cons_description      79372 non-null  object
+ 6   advice_to_management  44409 non-null  object
+dtypes: int64(1), object(6)
+memory usage: 4.8+ MB
+None
+id                          0
+tn_id                       0
+as_of_date                  0
+summary                    85
+pros_description            0
+cons_description            0
+advice_to_management    34963
+dtype: int64
+
+Fill nan to empty_string
+
+id                      0
+tn_id                   0
+as_of_date              0
+summary                 0
+pros_description        0
+cons_description        0
+advice_to_management    0
+dtype: int64
+Cleaning: summary
+Cleaning: pros_description
+Cleaning: cons_description
+Cleaning: advice_to_management
+(79372, 7)
+End Preprocessing: 2022-05-24 21:38:51.499496
+
+Start Embedding: 2022-05-24 21:38:51.499519
+
+ Processing Embedding tn_id: nasdaq:tmus
+
+ Processing Embedding tn_id: nasdaq:okta
+
+ Processing Embedding tn_id: nyse:mkl
+
+ Processing Embedding tn_id: nyse:pins
+
+ Processing Embedding tn_id: nyse:pd
+
+ Processing Embedding tn_id: nasdaq:frog
+
+ Processing Embedding tn_id: nyse:knsl
+
+ Processing Embedding tn_id: nasdaq:aapl
+
+ Processing Embedding tn_id: nasdaq:msft
+
+ Processing Embedding tn_id: nasdaq:amzn
+
+ Processing Embedding tn_id: nyse:crm
+
+ Processing Embedding tn_id: nyse:hubs
+df embedded shape:  (79372, 11)
+End Embedding: 2022-05-24 21:47:12.021765
+Build Topic :  /Users/yuenyeelo/Documents/Jobs/TwoCenturies/NLP_classifier/topic/TwoCenturies_Glassdoor_topic_seedwords.xlsx
+(29, 11)
+Index(['agility', 'benefit', 'collaboration', 'customer', 'diversity',
+       'execution', 'innovation', 'integrity', 'performance', 'respect',
+       'management'],
+      dtype='object')
+(277, 512)
+Finish Build Topic
+Run Classification :  2022-05-24 21:47:26.525187
+summary_embedded
+pros_description_embedded
+cons_description_embedded
+advice_to_management_embedded
+Finish Classification 2022-05-24 21:48:19.221511
+Output probs csv files at /Users/yuenyeelo/Documents/Jobs/TwoCenturies/NLP_classifier/output/
+Start_time: 2022-05-24 21:38:38.877534  End_time 2022-05-24 21:48:19.221550
