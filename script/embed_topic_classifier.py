@@ -1,10 +1,10 @@
 
 ############################################################################
-# May, 2022 
+# May, 2022
 # The python script is to clean the data and embedded the glassdoor review
 # then run topic classification
 #
-# Input: ./data/glassdoor_reviews_selected12.csv # glassdoor review csv 
+# Input: ./data/glassdoor_reviews_selected12.csv # glassdoor review csv
 #        ./model/  # pre-trained embedded model (downlaod from https://tfhub.dev/google/universal-sentence-encoder-multilingual/3)
 #        ./topic/TwoCenturies_Glassdoor_topic_seedwords.xlsx  # defined topics' seedwords
 # Output: ./output/*_probs.csv  # probs of each topic , of each review
@@ -12,27 +12,30 @@
 #
 # We process the following columns:
 # Reviews: summary, pros_description, cons_description, advice_to_manager
-# 
+#
 # This script is not run on multiple machine
-# Step 1: Preprocessing, cleaning, and remove stop words
-# Step 2: Sentence Embedding using pretrain model, we need to use the same model for topic embedding
-# Step 3: Topic seedword embedding
-# step 4: classification and output *_probs.csv to output dir
+# Step 1: Topic seedword embedding
+# Step 2: Build classifier
+# Step 3: Preprocessing, cleaning, and remove stop words
+# Step 4: Sentence Embedding using pretrain model, and
+#           classification per batch_size and output *_probs.csv to output dir
 #
 # by YuenYeeLo yylo7775@gmail.com
 ############################################################################
 
 
-# global 
+# global
 import global_options as glb
 feat_cols=glb.feat_cols
+batch_size=10000
+
 
 # import library
 import optparse
 import pandas as pd
 import numpy as np
 from datetime import datetime
-import os, re, string
+import os, re, string, math
 from sklearn.feature_extraction import text
 stop = text.ENGLISH_STOP_WORDS
 import tensorflow_hub as hub
@@ -52,7 +55,7 @@ def printTNID_COName(subset_train_df):
     #print(gd_df['employer_name'].unique())
     print(subset_train_df['employer_name'].value_counts())
 
-# Data cleaning 
+# Data cleaning
 def clean_text(text):
     # text = re.sub(r"\'s", " ", text)
     text = re.sub(r"don\'t", "do not ", text)
@@ -68,7 +71,7 @@ def clean_text(text):
     return text
 
 # clean punctuniations
-# remove non english chars 
+# remove non english chars
 # remove stopi words
 #cols: summary, pros_description, cons_description, advice_to_management
 def preProcess(gd_df, cols):
@@ -78,19 +81,21 @@ def preProcess(gd_df, cols):
         tmp_df[col_name]= tmp_df[col_name].str.lower()
         tmp_df[col_name]=tmp_df[col_name].apply(lambda x: ''.join([" " if ord(i) < 32 or ord(i) > 126 else i for i in x]))
         tmp_df[col_name]= tmp_df[col_name].apply(clean_text)
-        tmp_df[col_name].replace(to_replace=[r"\\t|\\n|\\r", "\t|\n|\r"], value=["",""], regex=True, inplace=True)   
+        tmp_df[col_name].replace(to_replace=[r"\\t|\\n|\\r", "\t|\n|\r"], value=["",""], regex=True, inplace=True)
         tmp_df[col_name] = tmp_df[col_name].apply(lambda x: ' '.join([word for word in x.split() if word not in (stop)]))
         tmp_df[col_name]= tmp_df[col_name].str.strip()
+        ## empty string replaced by [SEP] problem here
+        tmp_df[col_name].replace(r'^sep$','[SEP]',inplace=True)
     print(tmp_df.shape)
     return tmp_df
 
 
-def process_GD_CSV(gd_csvfile): 
+def process_GD_CSV(gd_csvfile):
     gd_df=pd.read_csv(gd_csvfile)
     printTNID_COName(gd_df)
     gd_df_sub=pd.DataFrame(gd_df[['id','tn_id','as_of_date','summary','pros_description','cons_description','advice_to_management']])
     gd_df_sub.dropna(subset=['tn_id'], inplace=True)
-    print("\nCheck data shape, info, number of nan\n") 
+    print("\nCheck data shape, info, number of nan\n")
     print(gd_df_sub.shape)
     print(gd_df_sub.info())
     print(gd_df_sub.isna().sum())
@@ -110,21 +115,7 @@ def embedding(df_co, feat_cols):
     #print(df_co.columns)
     #print(df_embd.columns)
     #print(df_embd.shape)
-    return df_embd 
-
-def embed_all(df_cleaned, feat_cols):
-    # for each tn_id
-    df_embedded_all=pd.DataFrame()
-    for id in df_cleaned['tn_id'].unique():
-        print("\n Processing Embedding tn_id:", id)
-        df_co=df_cleaned.loc[df_cleaned['tn_id']==id]
-        df_co.reset_index(drop=True, inplace=True)
-        df_embd=embedding(df_co, feat_cols)
-        df_tmp=pd.concat([df_co,df_embd], axis=1) #, ignore_index=True)
-        df_embedded_all=pd.concat([df_embedded_all, df_tmp], axis=0, ignore_index=True)
-
-    print("df embedded shape: ",  df_embedded_all.shape)
-    return df_embedded_all
+    return df_embd
 
 def topic_to_classid(topic_file):
     df_topics=pd.read_excel(topic_file, index_col=None)
@@ -163,33 +154,52 @@ def init_classifier(X_train_embedded, y_train):
     svm_embedded.fit(X_train_embedded, y_train)
     return svm_embedded
 
-def cls_predict(cls, df_embedded, df_topics, feat_cols, output_dir):
-    probs=[]
-    for col in feat_cols:
-        col_embd=col+"_embedded"
-        print(col_embd)
-        # X_test=df_embedded[col]
-        X_test_embedded=np.array(df_embedded[col_embd].to_list())
-        #X_test_embedded=np.array(df_embedded[col_embd].apply(literal_eval).to_list())
-        X_test_embedded=X_test_embedded.astype(float)
-        y_preds_proba=cls.predict_proba(X_test_embedded)
+def cls_predict(cls, X_test_embedded):
+    y_preds_proba=cls.predict_proba(X_test_embedded)
+    return y_preds_proba
 
-        probs.append(y_preds_proba)
-        # save probs to csv
-        df_class_prob=pd.DataFrame(y_preds_proba, columns=df_topics.columns)
+def save_probs_to_csv(df_cleaned, y_preds_proba, col, df_topics, output_dir):
+    df_class_prob=pd.DataFrame(y_preds_proba, columns=df_topics.columns)
         #print(df_class_prob.shape)
-        tmp_df=df_embedded[['id','tn_id','as_of_date',col]]
-        df_out=pd.concat([df_class_prob,tmp_df], axis=1)
-        outfilename=output_dir+col+"_probs.csv"
-        df_out.to_csv(outfilename, index=False)
-    return probs
+    tmp_df=df_cleaned[['id','tn_id','as_of_date',col]]
+    df_out=pd.concat([df_class_prob,tmp_df], axis=1)
+    outfilename=output_dir+col+"_probs.csv"
+    df_out.to_csv(outfilename, index=False)
+    print("Save file :", outfilename)
+
+def run_embedding_and_predict(X_test, embed, cls, batch_size):
+    n=len(X_test)
+    k=math.ceil(n/batch_size)
+    #_embeddeds=[]
+    y_probs=[]
+    print("Start Embedding", datetime.now())
+    for i in range(k):
+        batch=X_test[i*batch_size:(i+1)*batch_size]
+        X_embedded=embed(batch)
+        y_preds_proba=cls_predict(cls, X_embedded)
+        y_probs+=np.array(y_preds_proba).tolist()
+        #X_embedded_arr=np.array(X_embedded).tolist()
+        #X_embeddeds+=X_embedded_arr
+    #print(X_test.shape , len(X_embeddeds))
+    print("Finish Embedding", datetime.now())
+    #return X_embeddeds
+    return y_probs
+
+def embed_and_cls_predict(df_cleaned, feat_cols, embed, cls, df_topics, output_dir, batch_size):
+    for col in feat_cols:
+        print("Start running :" , col)
+        X_test=df_cleaned[col]
+        y_preds_proba = run_embedding_and_predict(X_test, embed,cls, batch_size)
+        save_probs_to_csv(df_cleaned, y_preds_proba, col, df_topics, output_dir)
+        print("End running :" , col)
+
 
 
 if __name__ == "__main__":
     parser = optparse.OptionParser()
     parser.add_option('-m', '--model', action="store", dest="model", help="Sentence Embedding Model Dir", default=glb.embed_model)
     parser.add_option('-c', '--csv', action="store", dest="csv", help="GlassDoor Reviews csv", default=glb.gd_csvfile)
-    parser.add_option('-t', '--topic', action="store", dest="topic_file", help="Topic Seedword, excel file", default=glb.topic_file) 
+    parser.add_option('-t', '--topic', action="store", dest="topic_file", help="Topic Seedword, excel file", default=glb.topic_file)
     parser.add_option('-o', '--outputdir', action="store", dest="outputdir", help="Output dir", default=glb.output_dir)
     options, args = parser.parse_args()
 
@@ -199,42 +209,36 @@ if __name__ == "__main__":
     print('Input Topic Seedwords, excel file', options.topic_file)
     print('Output dir', options.outputdir)
 
-    
-    ## Step 1:  Preprocessing
+    ## Step 1 Load topic seedwords excel file and run embedding
+    # initialize embedding model (use for both topic seedwords and reviews)
+    embed=init_model(options.model)
+    print("Topic Embedding: ", options.topic_file)
+    X_train_embedded,y_train, df_topics, df_topic_id=topic_to_embedded(options.topic_file, embed)
+    print("Finish Topic Embedding")
+
+
+    ## Step 2 build classification
+    # classifier
+    print("Train Classification : ", datetime.now())
+    cls = init_classifier(X_train_embedded, y_train)
+    if not os.path.exists(options.outputdir):
+      os.makedirs(options.outputdir)
+    print("End Train Classification")
+
+    ## Step 3:  Preprocessing
     print("Preprocessing file: ", options.csv)
     print("Start Preprocessing:", datetime.now() )
     df_cleaned=process_GD_CSV(options.csv)
     print("End Preprocessing:", datetime.now() )
-   
-    ## Step 2: Embedding reviews
-    # run sentence embedding
-    print("\nStart Embedding:", datetime.now() )
-    embed=init_model(options.model)
-    df_embedded=embed_all(df_cleaned, feat_cols)
-    print("End Embedding:", datetime.now() )
-
-    ### DO NOT SAVE EMBEDDED REVIEWS, FILE IS TOO BIG ####
-    # save embedded to csv, this file is very big 
-    # output_embedded_csv=options.outputdir+"/"+"embedded.csv"
-    # df_embedded.to_csv(output_embedded_csv)
-    # print("\nSave Embedded to csv:", output_embedded_csv )
-
-    ## Step 3 Load topic seedwords excel file and run embedding
-    print("Build Topic : ", options.topic_file)
-    X_train_embedded,y_train, df_topics, df_topic_id=topic_to_embedded(options.topic_file, embed)
-    print("Finish Build Topic")
 
 
-    ## Step 4 classification 
-    # classifier
-    print("Run Classification : ", datetime.now())
-    cls = init_classifier(X_train_embedded, y_train)
-    if not os.path.exists(options.outputdir):
-      os.makedirs(options.outputdir)
-   
-    # run classification
-    probs=cls_predict(cls, df_embedded, df_topics, feat_cols, options.outputdir)
-    print("Finish Classification" , datetime.now())
+    ## Step 4: Embedding reviews and run classification per batch_size
+    #
+    print("\nStart Embedding and Classification:", datetime.now() )
+
+
+    probs=embed_and_cls_predict(df_cleaned, feat_cols, embed, cls, df_topics, options.outputdir, batch_size)
+    print("Finish Embedding and Classification" , datetime.now())
     print("Output probs csv files at" , options.outputdir)
 
     end_time=datetime.now()
